@@ -1,0 +1,268 @@
+# Project Template Rules
+
+## Core Architecture
+
+### Tech Stack
+- **SvelteKit** - Web framework
+- **Svelte 5** - UI framework (with runes: `$state`, `$derived`, `$effect`, `$props`)
+- **TypeScript** - Full type safety, NO `any` types
+- **Tailwind CSS** - Primary styling method
+- **Supabase** - Backend (auth + PostgreSQL)
+
+### Layer Architecture (STRICT)
+1. **DAL (Database Access Layer)** - Direct database operations only
+2. **SERVICE** - Business logic orchestration, ID mapping
+3. **UTILS** - Pure functions, no side effects
+
+### Function Naming Convention
+- `DAL_<action>_<entity>` - Database functions
+- `<DOMAIN>SERVICE_<action>` - Service functions  
+- `<DOMAIN>UTIL_<description>` - Utility functions
+- `ENDPOINT_` - API endpoint handlers
+
+## Code Style & Patterns
+
+### Naming Conventions
+- **Variables/Functions**: snake_case, verbose and descriptive
+- **Types/Interfaces**: Camel_Snake_Case with purpose suffix (`_Schema`, `_Data`, `_Config`)
+- **Constants**: SCREAMING_SNAKE_CASE for true constants
+- **Boolean prefixes**: `is_`, `has_`, `should_`, `can_`
+- **Components**: PascalCase (Capitalized_Snake_Case preferred)
+
+### Code Structure
+- Early returns over deep nesting (max 3 levels)
+- Guard clauses first, then happy path
+- Single responsibility functions (< 50 lines)
+- Explicit over clever, verbose over terse
+
+### Svelte 5 Runes (REQUIRED)
+```svelte
+<script lang="ts">
+  let { prop = 'default' }: Props = $props()
+  let state = $state(false)
+  let computed = $derived(state ? 'active' : 'inactive')
+  
+  $effect(() => {
+    // side effects with cleanup
+  })
+</script>
+```
+
+**CRITICAL**: `$derived` functions MUST be called with parentheses: `{computed_function()}`
+
+## Database & Type Safety
+
+### Anti-Pattern: Manual Type Construction
+**NEVER** construct manual types that duplicate existing schema types.
+
+❌ BAD:
+```typescript
+const cache = new Map<number, { text: string; lang_id: number }>()
+const { data } = await sb.from('table').select('field1, field2')
+```
+
+✅ GOOD:
+```typescript
+import type { Table_Schema } from '$lib/DOMAIN/types'
+const cache = new Map<number, Table_Schema>()
+const { data } = await sb.from('table').select('*')
+```
+
+### Database Patterns
+- **Always deduplicate before upserts**
+- **Handle temporary negative IDs with proper mapping**
+- **Use `select('*')` for all fields, `Partial<SchemaType>` for specific fields**
+- **Every schema has UNIQUE and NONUNIQUE property constants**
+
+## Error Handling
+
+### App_Error Pattern
+All errors use layered error frames that accumulate context:
+```typescript
+// In DAL
+throw create_app_error({
+  layer: 'DAL',
+  code: 'operation_failed',
+  context: { id },
+  message: 'Database operation failed'
+}, error)
+
+// In SERVICE  
+throw push_error_frame(error, {
+  layer: 'SERVICE', 
+  code: 'service_failed',
+  context: { operation },
+  message: 'Service encountered error'
+})
+```
+
+### Error Layers
+- `DAL` - Database operations
+- `SERVICE` - Business logic
+- `ENDPOINT` - API endpoints
+- `LOAD` - SvelteKit load functions
+- `UI` - Client-side errors
+
+## File Organization
+
+### Domain Structure (NOT file-type)
+```
+src/lib/
+├── CORE/              # Core utilities (errors, logging, validation)
+├── DOMAIN1/           # Business domain
+│   ├── AGENTS.md      # Domain documentation
+│   ├── types.ts       # Type definitions
+│   ├── dal.ts         # Database access
+│   ├── service.ts     # Business logic
+│   └── utils.ts       # Domain utilities
+└── DOMAIN2/
+```
+
+### Route Structure
+- Keep components near routes that use them
+- API endpoints in route folders, not central `_api/`
+- `_api/` only for truly public/external APIs
+
+## CSS & Styling
+
+### Core Principles
+- **ALWAYS use theme tokens from `src/styles/theme.css`** - NEVER hardcode values
+- **Tailwind first (80%)** - Layout, spacing, colors, typography
+- **Custom CSS only when needed (20%)** - Complex effects, glows, animations
+- **Mobile-first responsive design**
+- **4px base unit for spacing scale**
+
+### Styling Strategy
+**Use Tailwind for:**
+- Layout (flex, grid, positioning)
+- Spacing (p-*, m-*, gap-*)
+- Colors via arbitrary values: `bg-[var(--color-surface-primary)]`
+- Typography (text-*, font-*, leading-*)
+- Responsive breakpoints (sm:, md:, lg:, xl:)
+
+**Create Custom CSS only for:**
+- Complex effects Tailwind can't handle
+- Multi-layer glows and shadows
+- Advanced animations
+- When mockup requires something impossible with Tailwind
+
+## Component Architecture
+
+### Global vs Local Components
+- **Global components**: `src/lib/COMPONENTS/[category]/[Name]/`
+  - Must include: Component.svelte, types.ts, README.md
+  - Use when component is used in 2+ routes
+- **Local components**: Stay in `[route]/components/`
+  - Use for route-specific logic
+- **ALWAYS check for existing components** before creating new ones
+
+### Component Implementation Workflow
+1. **Analysis & Planning** - Analyze mockup, identify components, determine hierarchy
+2. **Foundation Setup** - Update theme tokens if needed, create scaffolds
+3. **Incremental Implementation** - Work on ONE component at a time, iterate 2-3 times
+4. **Composition & Polish** - Assemble components, handle responsive breakpoints
+
+## Import Patterns
+
+### Path Aliases
+Use `$lib` for all library imports:
+```typescript
+import { create_app_error } from '$lib/CORE/errors'
+import type { Schema_Type } from '$lib/DOMAIN/types'
+```
+
+### Import Order
+1. External packages
+2. SvelteKit imports (`$app`, `$env`)
+3. Type imports from `$lib`
+4. Function imports from `$lib`
+5. Relative imports
+
+## Development Workflow
+
+### Project Initialization
+1. **Read PROJECT_GUIDE.md** first
+2. **Phase 1**: Conceptual alignment - ask clarifying questions, create ARCHITECTURE.md
+3. **Phase 2**: Scaffolding - create folder structure, set up PROGRESS.md
+4. **Phase 3**: Iterative development - implement features one at a time
+5. **Phase 4**: Verification & polish
+
+### PROGRESS.md Management
+- **Update religiously** after each task
+- **Move tasks** between sections (In Progress → Core Features → Completed)
+- **Document bugs** in "Known Issues" section
+- **Add session notes** for context
+
+### Git Workflow
+- **Conventional commits**: `feat:`, `fix:`, `refactor:`, `docs:`, `style:`, `test:`, `chore:`
+- **One feature per commit**
+- **Commit working code only**
+- **Branch naming**: `ui/feature-name` or `fix/bug-name`
+
+## Safety Rules
+
+### Never Auto-Execute
+- Never delete files without explicit permission
+- Never overwrite `.env`, `svelte.config.js`, or `vite.config.ts` without asking
+- Ask before installing new npm packages
+- Show diffs for large file changes (>100 lines) before applying
+
+### File Management
+- Keep files under 300 lines
+- Refactor into multiple files if needed
+- Split by logical concerns (types, DAL, service, utils)
+
+## Testing & Verification
+
+### Local Testing
+- Run `npm run dev` after every feature
+- Test in browser before committing
+- Check console for errors
+
+### Accessibility
+- Use semantic HTML (`<button>`, `<a>`, `<nav>`)
+- Include ARIA labels for icon-only buttons
+- Ensure keyboard navigation works
+- Maintain visible focus indicators
+
+## Performance
+
+### Optimization
+- Code split heavy components with dynamic imports
+- Debounce expensive operations (search, API calls)
+- Use `$derived` instead of `$effect` when possible
+- Lazy load images and non-critical content
+
+## Documentation
+
+### Required Documentation
+- **ARCHITECTURE.md** - Project structure and decisions
+- **PROGRESS.md** - Current status and task tracking
+- **AGENTS.md** - Domain-specific documentation in each folder
+- **README.md** - Component documentation for global components
+
+### Comments
+- Explain "why", not "what"
+- Document non-obvious business logic
+- Mark workarounds with removal plans
+- Add TODOs for future improvements
+
+## Key Reminders
+
+### AI Limitations
+- Cannot judge aesthetic spacing "feel"
+- Cannot perfect complex visual effects on first try (3-5 iterations normal)
+- Should not expect pixel-perfect on first attempt
+- Excellent at structure, layout, and systematic implementation
+
+### Core Principles
+1. **Explicit layer naming** - DAL_, SERVICE_, UTIL_ prefixes
+2. **Verbose, descriptive names** - Clarity over brevity
+3. **Strict layer separation** - DAL → SERVICE → UI
+4. **Error frames** - Context accumulates as errors bubble up
+5. **Schema types only** - Never construct manual types
+6. **Colocation** - Keep related files together
+7. **Simple over clever** - Readable code wins
+8. **PROGRESS.md is truth** - Always keep it current
+
+When building new features, reference `EXAMPLE_DATA/` and `EXAMPLE_CORE/` for patterns to follow.
