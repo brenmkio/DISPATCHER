@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms'
 	import type { ActionData } from './$types'
+	import TicketForm from '$lib/components/TicketForm.svelte'
 
 	interface Props {
 		form: ActionData
@@ -8,30 +8,29 @@
 
 	let { form }: Props = $props()
 
-	let is_submitting = $state(false)
+	const form_values = $derived(
+		form ? form as Record<string, string | undefined> : undefined
+	)
 </script>
 
-<div class="new-ticket-container">
-	<h1>Create New Ticket</h1>
-	<p>Ticket creation form - full implementation pending.</p>
+<div class="min-h-screen bg-gray-50">
+	<header class="bg-white border-b border-gray-200">
+		<div class="max-w-3xl mx-auto px-4 py-4">
+			<a href="/admin/dashboard" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+				&larr; Back to Dashboard
+			</a>
+		</div>
+	</header>
 
-	<form
-		method="POST"
-		action="?/create_ticket"
-		use:enhance={() => {
-			is_submitting = true
-			return async ({ update }) => {
-				await update()
-				is_submitting = false
-			}
-		}}
-	>
-		{#if form?.error}
-			<div class="error-message">{form.error}</div>
-		{/if}
+	<main class="max-w-3xl mx-auto px-4 py-6">
+		<div class="bg-white rounded-lg border border-gray-200 p-6">
+			<h1 class="text-lg font-bold text-gray-900 mb-6">Create New Ticket</h1>
 
-		<button type="submit" disabled={is_submitting}>
-			{is_submitting ? 'Creating...' : 'Create Ticket'}
-		</button>
-	</form>
+			<TicketForm
+				action="?/create_ticket"
+				error_message={form?.error}
+				form_data={form_values}
+			/>
+		</div>
+	</main>
 </div>
