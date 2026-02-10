@@ -1,19 +1,13 @@
 export interface Dispatcher_Tickets_Schema {
-	id?: number
+	id?: string
 	created_at?: string
 	status: string
 	client_name: string
 	client_email: string
-	client_phone?: string
-	pickup_address: string
-	delivery_address: string
-	product_description: string
-	weight_kg?: number
-	estimated_pickup_date?: string
-	actual_pickup_date?: string
-	estimated_delivery_date?: string
-	actual_delivery_date?: string
-	trucking_company?: string
+	pickup_location: string
+	delivery_location: string
+	item_description: string
+	estimated_delivery?: string
 	notes?: string
 }
 
@@ -23,15 +17,11 @@ export const DISPATCHER_TICKETS_NONUNIQUE = [
 	'status',
 	'client_name',
 	'client_email',
-	'client_phone',
-	'pickup_address',
-	'delivery_address',
-	'product_description',
-	'weight_kg',
-	'estimated_pickup_date',
-	'actual_pickup_date',
-	'estimated_delivery_date',
-	'actual_delivery_date',
-	'trucking_company',
+	'pickup_location',
+	'delivery_location',
+	'item_description',
+	'estimated_delivery',
 	'notes'
 ] as const
+
+export type Ticket_Status = 'pending' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled'
