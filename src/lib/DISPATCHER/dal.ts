@@ -1,85 +1,116 @@
 import { create_app_error } from '$lib/EXAMPLE_CORE/errors'
 import type { Dispatcher_Tickets_Schema } from './types'
 
-export async function DAL_get_one_ticket(
-	sb: any
-): Promise<Dispatcher_Tickets_Schema> {
-	try {
-		// Verify Supabase client is available and properly structured
-		if (!sb) {
-			throw create_app_error({
-				layer: 'DAL',
-				code: 'supabase_client_missing',
-				context: { table: 'DISPATCHER_Tickets', debug_info: 'sb is undefined or null' },
-				message: 'Supabase client not available - check environment configuration'
-			})
-		}
+export async function DAL_get_all_tickets(
+	sb: any,
+	limit: number = 50
+): Promise<Dispatcher_Tickets_Schema[]> {
+	const { data, error } = await sb
+		.from('DISPATCHER_Tickets')
+		.select('*')
+		.order('created_at', { ascending: false })
+		.limit(limit)
 
-		// Check if sb has the expected methods
-		if (typeof sb.from !== 'function') {
-			throw create_app_error({
-				layer: 'DAL',
-				code: 'supabase_client_invalid',
-				context: { table: 'DISPATCHER_Tickets', debug_info: 'sb.from is not a function', sb_type: typeof sb },
-				message: 'Supabase client is invalid - missing required methods'
-			})
-		}
+	if (error) {
+		throw create_app_error({
+			layer: 'DAL',
+			code: 'get_all_tickets_failed',
+			context: { table: 'DISPATCHER_Tickets', limit },
+			message: 'Failed to fetch tickets'
+		}, error)
+	}
 
-		console.log('DAL: Attempting database query with sb client:', typeof sb, 'from method:', typeof sb.from)
+	return data as Dispatcher_Tickets_Schema[]
+}
 
-		const { data, error } = await sb
-			.from('DISPATCHER_Tickets')
-			.select('*')
-			.limit(1)
-			.single()
+export async function DAL_get_ticket_by_id(
+	sb: any,
+	ticket_id: string
+): Promise<Dispatcher_Tickets_Schema | null> {
+	const { data, error } = await sb
+		.from('DISPATCHER_Tickets')
+		.select('*')
+		.eq('id', ticket_id)
+		.single()
 
-		console.log('DAL: Query result - data:', data, 'error:', error)
-
-		if (error) {
-			// Provide detailed error context for different error types
-			let error_message = 'Failed to fetch ticket from database'
-			let error_context: Record<string, any> = { table: 'DISPATCHER_Tickets', error_details: error }
-
-			if (error.code === 'PGRST116') {
-				error_message = 'No tickets found in DISPATCHER_Tickets table - table may be empty'
-				error_context = { ...error_context, suggestion: 'Insert a test ticket into the table' }
-			} else if (error.code === '42P01') {
-				error_message = 'DISPATCHER_Tickets table does not exist - run database migrations'
-				error_context = { ...error_context, suggestion: 'Check database schema and run migrations' }
-			} else if (error.code === '42501') {
-				error_message = 'Permission denied accessing DISPATCHER_Tickets table - check RLS policies'
-				error_context = { ...error_context, suggestion: 'Review Row Level Security policies' }
-			}
-
-			throw create_app_error({
-				layer: 'DAL',
-				code: 'get_ticket_failed',
-				context: error_context,
-				message: error_message
-			}, error)
-		}
-
-		if (!data) {
-			throw create_app_error({
-				layer: 'DAL',
-				code: 'no_ticket_found',
-				context: { table: 'DISPATCHER_Tickets', suggestion: 'Insert a test ticket to verify connection' },
-				message: 'Query succeeded but no ticket data returned - table may be empty'
-			})
-		}
-
-		return data
-	} catch (e) {
-		console.log('DAL: Caught error:', e)
-		
-		if (e && typeof e === 'object' && 'layer' in e) {
-			throw e
+	if (error) {
+		if (error.code === 'PGRST116') {
+			return null
 		}
 		throw create_app_error({
 			layer: 'DAL',
-			code: 'unexpected_error',
-			context: { table: 'DISPATCHER_Tickets', error: e, error_type: typeof e, error_message: (e as Error)?.message },
-			message: `Unexpected database error: ${(e as Error)?.message || 'Unknown error'}`
-		}, e)
+			code: 'get_ticket_by_id_failed',
+			context: { table: 'DISPATCHER_Tickets', ticket_id },
+			message: 'Failed to fetch ticket'
+		}, error)
 	}
+
+	return data as Dispatcher_Tickets_Schema
+}
+
+export async function DAL_create_ticket(
+	sb: any,
+	ticket: Omit<Dispatcher_Tickets_Schema, 'id' | 'created_at'>
+): Promise<Dispatcher_Tickets_Schema> {
+	const { data, error } = await sb
+		.from('DISPATCHER_Tickets')
+		.insert(ticket)
+		.select('*')
+		.single()
+
+	if (error) {
+		throw create_app_error({
+			layer: 'DAL',
+			code: 'create_ticket_failed',
+			context: { table: 'DISPATCHER_Tickets', client_name: ticket.client_name },
+			message: 'Failed to create ticket'
+		}, error)
+	}
+
+	return data as Dispatcher_Tickets_Schema
+}
+
+export async function DAL_update_ticket(
+	sb: any,
+	ticket_id: string,
+	updates: Partial<Dispatcher_Tickets_Schema>
+): Promise<Dispatcher_Tickets_Schema> {
+	const { data, error } = await sb
+		.from('DISPATCHER_Tickets')
+		.update(updates)
+		.eq('id', ticket_id)
+		.select('*')
+		.single()
+
+	if (error) {
+		throw create_app_error({
+			layer: 'DAL',
+			code: 'update_ticket_failed',
+			context: { table: 'DISPATCHER_Tickets', ticket_id },
+			message: 'Failed to update ticket'
+		}, error)
+	}
+
+	return data as Dispatcher_Tickets_Schema
+}
+
+export async function DAL_delete_ticket(
+	sb: any,
+	ticket_id: string
+): Promise<boolean> {
+	const { error } = await sb
+		.from('DISPATCHER_Tickets')
+		.delete()
+		.eq('id', ticket_id)
+
+	if (error) {
+		throw create_app_error({
+			layer: 'DAL',
+			code: 'delete_ticket_failed',
+			context: { table: 'DISPATCHER_Tickets', ticket_id },
+			message: 'Failed to delete ticket'
+		}, error)
+	}
+
+	return true
 }
