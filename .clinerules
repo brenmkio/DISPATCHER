@@ -1,0 +1,102 @@
+# Project Rules - Shipment Tracker Demo
+
+## Project Overview
+Demo shipment tracking web app. Admin (Mark) creates shipment tickets, sends tracking URLs to clients. Clients view read-only status updates.
+
+## Tech Stack
+- **Framework**: SvelteKit with Svelte 5 (runes)
+- **Language**: TypeScript
+- **Database**: Supabase (Postgres)
+- **Auth**: Supabase Auth
+- **Styling**: Tailwind CSS
+- **Deployment**: Vercel
+
+## Project Structure
+This project was duplicated from a template with existing patterns. **Follow the template's established conventions**:
+- Type definitions in `types.ts` using `*_Schema` pattern to mirror database tables
+- Auth setup already exists in `hooks.server.ts` - use that pattern
+- Follow existing naming conventions and file organization from template
+
+## Database Schema
+`tickets` table (already created manually):
+```sql
+id: uuid (pk, default: gen_random_uuid())
+created_at: timestamp (default: now())
+status: text (default: 'pending')
+client_name: text (not null)
+client_email: text (not null)
+pickup_location: text (not null)
+delivery_location: text (not null)
+item_description: text (not null)
+estimated_delivery: date (nullable)
+notes: text (nullable)
+```
+
+**Required**: Create `Tickets_Schema` interface in `types.ts` following the template's existing pattern for mirroring DB types.
+
+## Route Structure
+```
+/admin/login          # Admin authentication
+/admin/dashboard      # List all tickets (auth required)
+/admin/tickets/new    # Create new ticket (auth required)
+/admin/tickets/[id]   # Edit ticket (auth required)
+/track/[ticketId]     # Public read-only ticket view
+```
+
+## Auth Requirements
+- Use existing `hooks.server.ts` setup for authentication
+- Admin routes require authenticated user
+- Track routes are public (no auth)
+- Single admin user (Mark) - credentials managed in Supabase dashboard
+
+## Supabase RLS Policies
+Enable RLS on `tickets` table:
+- Admin (authenticated users): Full CRUD access
+- Public: SELECT only via ticket UUID in URL
+
+## Status Values
+Valid ticket statuses:
+- `pending` - Default state
+- `in_transit` - Item picked up, en route
+- `delivered` - Item delivered
+- `cancelled` - Shipment cancelled
+
+## Key Functionality
+1. **Admin creates ticket** → generates UUID → stores in Supabase
+2. **Admin gets shareable URL** → `/track/[uuid]`
+3. **Client visits URL** → sees read-only ticket details and status
+4. **Admin updates status** → client sees update on refresh (no real-time for demo)
+
+## Styling Guidelines
+- Use Tailwind utility classes
+- Keep UI minimal and functional (this is a demo)
+- Focus on clear data display over aesthetics
+- Mobile responsive not required for demo
+
+## Error Handling
+- Form validation on ticket creation
+- Display user-friendly error messages
+- Handle missing/invalid ticket IDs gracefully
+
+## Out of Scope for Demo
+- Email/PDF generation (log to console instead)
+- Invoice functionality
+- Stakeholder management
+- File uploads
+- Real-time updates (polling acceptable)
+- Complex fee calculations
+- Password reset flows
+
+## Development Priorities
+1. Database types and schemas
+2. Auth middleware for admin routes
+3. Admin dashboard with ticket list
+4. Ticket creation form
+5. Ticket detail/edit page
+6. Public tracking page
+7. Status update functionality
+
+## Notes
+- This is a proof-of-concept demo to show technical competence
+- Data structures are simplified - real implementation will expand fields
+- Focus on demonstrating core value loop: create → share → view → update
